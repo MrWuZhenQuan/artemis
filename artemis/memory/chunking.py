@@ -323,18 +323,44 @@ class StepCapsuleLens(StepLens):
 
     def _get_llm(self):
         if self._llm is None:
-            from artemis.services.llm import get_google_llm
+            import os
+            from artemis.llm.router import ModelEndpoint, ModelFactory, ModelProvider
+            from artemis.config.settings import settings
 
-            self._llm = get_google_llm(model_name=self._model_name, temperature=0.0)
+            provider = (
+                ModelProvider.ANTHROPIC
+                if settings.ANTHROPIC_API_KEY
+                else (ModelProvider.OPENAI if settings.OPENAI_API_KEY else ModelProvider.GOOGLE)
+            )
+            ep = ModelEndpoint(provider=provider, model_name=self._model_name, temperature=0.0)
+            api_url = os.environ.get("ANTHROPIC_API_URL") or os.environ.get("ANTHROPIC_BASE_URL")
+            if provider == ModelProvider.ANTHROPIC and api_url:
+                ep.api_base = api_url
+            elif provider == ModelProvider.OPENAI and settings.OPENAI_BASE_URL:
+                ep.api_base = str(settings.OPENAI_BASE_URL)
+            self._llm = ModelFactory.get_model(ep)
         return self._llm
 
     def _get_fallback_llm(self):
         if self._fallback_llm is None and self._fallback_model_name:
-            from artemis.services.llm import get_google_llm
+            import os
+            from artemis.llm.router import ModelEndpoint, ModelFactory, ModelProvider
+            from artemis.config.settings import settings
 
-            self._fallback_llm = get_google_llm(
-                model_name=self._fallback_model_name, temperature=0.0
+            provider = (
+                ModelProvider.ANTHROPIC
+                if settings.ANTHROPIC_API_KEY
+                else (ModelProvider.OPENAI if settings.OPENAI_API_KEY else ModelProvider.GOOGLE)
             )
+            ep = ModelEndpoint(
+                provider=provider, model_name=self._fallback_model_name, temperature=0.0
+            )
+            api_url = os.environ.get("ANTHROPIC_API_URL") or os.environ.get("ANTHROPIC_BASE_URL")
+            if provider == ModelProvider.ANTHROPIC and api_url:
+                ep.api_base = api_url
+            elif provider == ModelProvider.OPENAI and settings.OPENAI_BASE_URL:
+                ep.api_base = str(settings.OPENAI_BASE_URL)
+            self._fallback_llm = ModelFactory.get_model(ep)
         return self._fallback_llm
 
     @property

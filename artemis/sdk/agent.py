@@ -274,7 +274,7 @@ class Agent:
         return True
 
     async def _prewarm_llm_connections(self, api_key: str | None = None):
-        """Pre-warms the HTTP2/gRPC connection pools for both Native GenAI and LangChain clients in the background."""
+        """Pre-warms the HTTP2/gRPC connection pools for the configured LLM provider."""
         if os.environ.get("ARTEMIS_FAKE_LLM") == "1":
             logger.info("ARTEMIS_FAKE_LLM=1 — skipping real LLM connection pre-warming.")
             publish_startup_progress(
@@ -284,14 +284,15 @@ class Agent:
         publish_startup_progress(
             "model_warmup", "Warming the model connection", session_id=self._session_id
         )
-        logger.info("Starting background pre-warming of Gemini API connection pools...")
+        logger.info("Starting background pre-warming of LLM connection pools...")
         try:
+            # Only pre-warm Google if a Google API key is available
             key = api_key
             if not key and settings.GOOGLE_API_KEY:
                 key = settings.GOOGLE_API_KEY.get_secret_value()
 
             if not key:
-                logger.warning("Skipping LLM pre-warming: No API key available.")
+                logger.warning("Skipping LLM pre-warming: No Google API key available.")
                 publish_startup_progress(
                     "model_ready",
                     "Model connection will initialize on first use",
@@ -299,7 +300,7 @@ class Agent:
                 )
                 return
 
-            # 1. Pre-warm Native SDK client
+            # 1. Pre-warm Native SDK client (Google only)
             client = genai.Client(api_key=key)
 
             # 2. Pre-warm LangChain client
@@ -311,7 +312,7 @@ class Agent:
                 chat.ainvoke("ping"),
                 return_exceptions=True,
             )
-            logger.success("Gemini API connection pools successfully pre-warmed.")
+            logger.success("LLM API connection pools successfully pre-warmed.")
             publish_startup_progress(
                 "model_ready", "Model connection is ready", session_id=self._session_id
             )

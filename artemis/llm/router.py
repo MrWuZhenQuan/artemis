@@ -133,6 +133,24 @@ class ModelEndpoint(BaseModel):
         )
 
 
+#: Fallback model names per provider — each provider gets a model it recognises.
+#: Used by Flash runner / summarizer when the config router is unavailable.
+FALLBACK_MODELS: dict[ModelProvider, str] = {
+    ModelProvider.ANTHROPIC: "zhipu/glm-5.3-flash",
+    ModelProvider.OPENAI: "gpt-4o-mini",
+    ModelProvider.GOOGLE: "gemini-2.5-flash",
+}
+
+
+def select_fallback_provider() -> ModelProvider:
+    """Pick a fallback provider by API key availability: ANTHROPIC > OPENAI > GOOGLE."""
+    if settings.ANTHROPIC_API_KEY:
+        return ModelProvider.ANTHROPIC
+    if settings.OPENAI_API_KEY:
+        return ModelProvider.OPENAI
+    return ModelProvider.GOOGLE
+
+
 def _patch_langchain_google_genai():
     """Patches ChatGoogleGenerativeAI._process_tool_config to preserve and ensure include_server_side_tool_invocations."""
     try:
@@ -321,6 +339,18 @@ class ModelFactory:
                 "api_key": api_key,
                 "timeout": endpoint.timeout_seconds,
             }
+            # Support custom Anthropic API URL (e.g. Z.ai/wps compatible endpoint)
+            anthropic_base_url = (
+                endpoint.api_base
+                or os.environ.get("ANTHROPIC_API_URL")
+                or os.environ.get("ANTHROPIC_BASE_URL")
+            )
+            if anthropic_base_url:
+                kwargs["anthropic_api_url"] = anthropic_base_url
+                # GLM Anthropic-compatible endpoints return SSE even for
+                # non-streaming requests; streaming mode properly parses SSE
+                # into ParsedMessage objects (fixes 'str' has no model_dump).
+                kwargs["streaming"] = True
             budget = endpoint.thinking_budget
             if not budget and endpoint.reasoning_effort:
                 effort_map = {"low": 2048, "medium": 8192, "high": 32768}

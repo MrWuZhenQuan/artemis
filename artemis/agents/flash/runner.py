@@ -284,7 +284,22 @@ class FlashRunner:
         except Exception as e:
             logger.warning(f"Failed to get operator LLM from config, using default: {e}")
 
-            return RobustChatModelWrapper(get_google_llm(model_name="gemini-2.5-flash"), self.ctx)
+            from artemis.llm.router import (
+                FALLBACK_MODELS,
+                ModelEndpoint,
+                ModelFactory,
+                ModelProvider,
+                select_fallback_provider,
+            )
+            from artemis.config.settings import settings
+
+            provider = select_fallback_provider()
+            ep = ModelEndpoint(provider=provider, model_name=FALLBACK_MODELS[provider])
+            if provider == ModelProvider.ANTHROPIC and settings.ANTHROPIC_API_URL:
+                ep.api_base = str(settings.ANTHROPIC_API_URL)
+            elif provider == ModelProvider.OPENAI and settings.OPENAI_BASE_URL:
+                ep.api_base = str(settings.OPENAI_BASE_URL)
+            return RobustChatModelWrapper(ModelFactory.get_model(ep), self.ctx)
 
     def _render_system_prompt(self, tools_declaration: list) -> str:
         """Renders the system prompt from the flash_runner.md template.

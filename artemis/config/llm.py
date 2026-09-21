@@ -120,12 +120,12 @@ def lightweight_judge_default() -> "LLMWithFallback":
     """Factory default for the lightweight judge nodes (pixel safety net and
     planner validation): a flash-lite model at temperature 0."""
     return LLMWithFallback(
-        provider="google",
-        model="gemini-3.5-flash-lite",
+        provider="anthropic",
+        model="zhipu/glm-5.3-flash",
         temperature=0.0,
         fallback=LLM(
-            provider="google",
-            model="gemini-3.1-flash-lite",
+            provider="anthropic",
+            model="zhipu/glm-5.3-flash",
             temperature=0.0,
         ),
     )

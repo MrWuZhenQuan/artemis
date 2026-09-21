@@ -7,13 +7,12 @@
   // 1. Global Default Model (Applied to all sub-agents unless overridden below)
   // ------------------------------------------------------------------------------
   "default": {
-    "provider": "google",
-    "model": "gemini-3.8-flash",
+    "provider": "anthropic",
+    "model": "zhipu/glm-5.3-flash",
     "thinking_level": "medium",
     "fallback": {
-      "provider": "google",
-      "model": "gemini-3.7-flash",
-      "thinking_level": "medium"
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash"
     }
   },
 
@@ -42,9 +41,9 @@
       "fallback": { "provider": "google", "model": "gemini-3.1-flash-lite" }
     },
     "local-ollama": {
-      "provider": "openai",
+      "provider": "ollama",
       "model": "llama3.2-vision",
-      "fallback": { "provider": "openai", "model": "llama3.2-vision" }
+      "fallback": { "provider": "ollama", "model": "llama3.2-vision" }
     }
   },
 
@@ -54,11 +53,15 @@
   "nodes": {
     // 🧠 Planner: High-level goal decomposition and strategic step planning
     "planner": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash",
       "thinking_level": "high"
     },
 
     // 🎯 Operator: Screen perception, element interaction, and direct execution
     "operator": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash",
       "thinking_level": "medium",
       "include_thoughts": true
     },
@@ -68,17 +71,21 @@
     //  - Native Gemini Files API for Gemini models with Google API keys (long video file stream);
     //    Gemini 3.6+ Flash sub-agents use agentic video understanding by default (see video_analyzer.processing below)
     //  - Universal Multi-Model Engine for Claude 3.5/3.7, GPT-4o, OpenRouter, Vertex AI (dynamic keyframe extraction + multimodal tool calling)
-    "video_analyzer": {},
+    "video_analyzer": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash"
+    },
 
     // 👁️ Object Detector & Explorer (Flash Mode): Visual coordinates grounding and bounding boxes
     // CRITICAL REQUIREMENT: Standard LLMs (including standard Gemini Flash, GPT-4o, Claude 3.7) lack sub-pixel spatial coordinate fine-tuning.
     // To achieve accurate [x, y] point and bounding box localization, this node MUST use specialized Gemini ER (Embodied Reasoning / Robotics) models:
     // e.g., "gemini-robotics-er-2-preview". Non-ER models will fail spatial coordinate detection.
     "object_detector": {
-      "model": "gemini-robotics-er-2-preview",
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash",
       "fallback": {
-        "provider": "google",
-        "model": "gemini-robotics-er-2-preview"
+        "provider": "anthropic",
+        "model": "zhipu/glm-5.3-flash"
       }
     },
 
@@ -87,41 +94,94 @@
     //  - "flash" version delegates directly to object_detector (requires Gemini ER model above).
     //  - "pro" / "ultra" versions run multi-turn ReAct loops (supports both Native Gemini and Universal Multi-Model LangChain engines).
     "explorer": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash",
       "thinking_level": "medium"
     },
 
     // 📋 Summarizer: Aggregates step history and generates structured outcome
-    "summarizer": {},
+    "summarizer": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash"
+    },
 
     // 🔽 Hopper: Fast lightweight package name locator
     "hopper": {
-      "model": "gemini-3.5-flash-lite",
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash",
       "fallback": {
-        "provider": "google",
-        "model": "gemini-3.1-flash-lite"
+        "provider": "anthropic",
+        "model": "zhipu/glm-5.3-flash"
       }
     },
 
     // 📝 Outputter: Synthesizes execution trace into final output report
-    "outputter": {},
+    "outputter": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash"
+    },
 
     // 🪵 Log Analyzer: Error log diagnosis with search grounding
     "log_analyzer": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash",
       "enable_grounding": true
     },
 
     // 🩺 Diagnoser Expert: Failure root cause diagnosis with search grounding
     "diagnoser_expert": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash",
       "enable_grounding": true
     },
     // 🏛️ Committee Council Members
-    "planner_avatar": {},
-    "history_analyzer_expert": {},
+    "planner_avatar": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash"
+    },
+    "history_analyzer_expert": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash"
+    },
     // 🔎 Checker: Plan-declared checkpoint verification and exit final review.
     // Thoughts are streamed so the verifier's reasoning shows live in the timeline.
     "checker": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash",
       "thinking_level": "medium",
       "include_thoughts": true
+    },
+    "validator": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash"
+    },
+    "validator_pixel_safety_net": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash"
+    },
+    "planner_validation": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash"
+    },
+    "diagnoser": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash"
+    },
+    "history_analyzer": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash"
+    },
+    "image_processor": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash"
+    },
+    "log_reader_sub_agent": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash"
+    },
+    "output_analyzer": {
+      "provider": "anthropic",
+      "model": "zhipu/glm-5.3-flash"
     }
     // 🎯 Planner Validation: Advisory review of milestone changes.
     // Defaults to the same lightweight model as the pixel safety net
@@ -144,8 +204,9 @@
       // Summarizes intermediate steps in background without blocking the runner,
       // replacing images only after strictly objective, high-density summaries are ready.
       "step_summarizer": {
-        "enabled": true, // Whether background step summarization is active
-        "model": "gemini-3.5-flash-lite", // Lightweight model for fast background inference
+        "enabled": false, // Disabled: VisualStepSummarizer hardcodes Google model
+        "provider": "anthropic",
+        "model": "zhipu/glm-5.3-flash", // Lightweight model for fast background inference
         "prune_history_xml": true // Prune outdated heavy XML trees from historical steps
       }
     },
@@ -246,7 +307,7 @@
         // call each); milestone closes are exempt, the hard line waives it.
         "min_steps": 3,
         "target_source_tokens": 2000,
-        "model": "gemini-3.8-flash",
+        "model": "zhipu/glm-5.3-flash",
         "max_chunks": 8
         // "max_eras": 8 // independent era cap; omitted = follows max_chunks
       },
