@@ -31,6 +31,11 @@ import {
   providedIn: 'root'
 })
 export class SystemService {
+
+  /** Provider aliases: keys that should mirror the canonical provider's value. */
+  private static readonly PROVIDER_ALIASES: Record<string, string> = {
+    'gemini': 'google',
+  };
   private http = inject(HttpClient);
 
   // Core reactive signals
@@ -517,11 +522,29 @@ export class SystemService {
   }
 
   public currentApiKey = computed<string>(() => {
-    return (this.llmProbe()?.metadata?.['current_key'] as string) || '';
+    // Derive from masked previews in model-config-env instead of raw keys
+    // in readiness metadata (which is now scrubbed on the backend).
+    const vars = this.modelConfigEnv()?.env_vars || [];
+    const active = vars.find(v => v.is_set && v.preview);
+    return active?.preview || '';
   });
 
   public apiKeysMap = computed<Record<string, string>>(() => {
-    return (this.llmProbe()?.metadata?.['api_keys'] as Record<string, string>) || {};
+    // Derive from masked previews in model-config-env instead of raw keys
+    // in readiness metadata (which is now scrubbed on the backend).
+    const vars = this.modelConfigEnv()?.env_vars || [];
+    const map: Record<string, string> = {};
+    for (const v of vars) {
+      if (v.is_set && v.preview) {
+        map[v.provider] = v.preview;
+      }
+    }
+    for (const [alias, canonical] of Object.entries(SystemService.PROVIDER_ALIASES)) {
+      if (map[canonical]) {
+        map[alias] = map[canonical];
+      }
+    }
+    return map;
   });
 
   public modelConfigEnv = signal<ModelConfigEnvResponse | null>(null);

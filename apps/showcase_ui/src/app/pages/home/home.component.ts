@@ -379,15 +379,6 @@ export class HomeComponent implements OnInit, OnDestroy {
   public blockerCount = computed(() => this.systemService.blockerCount());
   public passedBlockerCount = computed(() => this.systemService.passedBlockerCount());
 
-  // Configured LLM providers from probe metadata
-  public configuredLlmProviders = computed<any[]>(() => {
-    const meta = this.llmProbe()?.metadata;
-    if (meta && Array.isArray(meta['providers'])) {
-      return meta['providers'];
-    }
-    return [];
-  });
-
   // Multi-OS detection & active OS selection
   public selectedOs = signal<'linux' | 'darwin' | 'windows' | null>(null);
   public effectiveOs = computed<'linux' | 'darwin' | 'windows'>(() => {
@@ -463,8 +454,8 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   // Flag indicating whether Google Cloud Vision OCR is configured
   public isOcrConfigured = computed<boolean>(() => {
-    const meta = this.ocrProbe()?.metadata;
-    return meta?.['configured'] === true;
+    const vars = this.systemService.modelConfigEnv()?.env_vars || [];
+    return vars.some(v => v.provider === 'ocr' && v.is_set);
   });
 
   public currentApiKey = computed<string>(() => this.systemService.currentApiKey());
@@ -798,15 +789,6 @@ export class HomeComponent implements OnInit, OnDestroy {
       case 'ocr': return 'Enter Vision OCR API Key (e.g. AIzaSy...)';
       default: return 'Enter API Key...';
     }
-  }
-
-  public isTabProviderActive(tab: string): boolean {
-    if (tab === 'ocr') {
-      return this.isOcrConfigured();
-    }
-    const targetProvider = tab === 'gemini' ? 'google' : tab;
-    const providers = this.configuredLlmProviders();
-    return providers.some(p => p.provider === targetProvider);
   }
 
   public refreshReadiness(): void {

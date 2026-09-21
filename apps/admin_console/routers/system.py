@@ -17,6 +17,7 @@
 import ipaddress
 import os
 import secrets
+from typing import Any
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
@@ -27,9 +28,37 @@ from artemis.core.diagnostics.adb_server_connection import (
     InvalidAdbServerEndpoint,
     adb_server_connection,
 )
-from artemis.core.diagnostics.schema import SystemReadinessReport
+from artemis.core.diagnostics.schema import ProbeCategory, SystemReadinessReport
 
 router = APIRouter(prefix="/api/system", tags=["system"])
+
+# Probe ids whose metadata may carry raw API credentials.  These probes
+# populate metadata with raw_key / key / api_keys / current_key for the
+# console settings form prefill; the readiness HTTP response must omit
+# that metadata entirely so secrets never reach the wire.
+_CREDENTIAL_PROBE_IDS = frozenset({"gemini_api_key", "vision_ocr_key"})
+
+
+def _safe_readiness_dict(report: SystemReadinessReport) -> dict[str, Any]:
+    """Build a safe readiness response: credential probes omit metadata.
+
+    Follows the doctor.py convention of hand-building the external dict
+    rather than trusting Pydantic's default serialization with secret-laden
+    models.  Non-credential probes keep full metadata (device info, exception
+    text, etc.) for debugging.
+    """
+    data = report.model_dump()
+    for probe in data.get("probes", []):
+        if probe.get("category") == ProbeCategory.CREDENTIALS.value:
+            probe["metadata"] = {}
+            if probe.get("status") == "pass":
+                probe["description"] = f"{probe['title']} is configured and active."
+            else:
+                probe["description"] = f"{probe['title']} is not configured."
+    # Re-validate after manual dict modification to catch structural regressions
+    # (missing fields, type mismatches) before the response leaves the process.
+    SystemReadinessReport.model_validate(data)
+    return data
 
 
 def _require_local_admin_request(request: Request) -> None:
@@ -99,9 +128,18 @@ class SelectDeviceRequest(BaseModel):
 
 
 @router.get("/readiness", response_model=SystemReadinessReport)
-async def get_system_readiness(force: bool = False) -> SystemReadinessReport:
-    """Execute all diagnostic probes and return a comprehensive system readiness report."""
-    return await readiness_engine.run_all(force_refresh=force)
+async def get_system_readiness(request: Request, force: bool = False) -> dict[str, Any]:
+    """Execute all diagnostic probes and return a safe readiness report.
+
+    Credential probe metadata is omitted; only status/summary/description are
+    returned.  Loopback-only to prevent remote access to diagnostic details,
+    unless ARTEMIS_ALLOW_REMOTE_READINESS is set (e.g. behind a trusted proxy).
+    """
+    allow_remote = os.getenv("ARTEMIS_ALLOW_REMOTE_READINESS", "").lower() in {"1", "true", "yes"}
+    if not allow_remote:
+        _require_loopback_request(request, "System readiness details are local-only.")
+    report = await readiness_engine.run_all(force_refresh=force)
+    return _safe_readiness_dict(report)
 
 
 @router.post("/devices/select")
@@ -117,7 +155,7 @@ async def select_active_device(request: SelectDeviceRequest):
     return {
         "status": "success",
         "selected_serial": serial,
-        "report": report,
+        "report": _safe_readiness_dict(report),
     }
 
 
@@ -129,7 +167,7 @@ async def restart_adb_server():
     updated_report = await readiness_engine.run_all(force_refresh=True)
     return {
         "restart_result": restart_result,
-        "report": updated_report,
+        "report": _safe_readiness_dict(updated_report),
     }
 
 
@@ -140,7 +178,7 @@ async def heal_adb_keys():
     updated_report = await readiness_engine.run_all()
     return {
         "heal_result": heal_result,
-        "report": updated_report,
+        "report": _safe_readiness_dict(updated_report),
     }
 
 
@@ -159,7 +197,7 @@ async def connect_wireless_adb(request: ConnectAdbRequest):
     updated_report = await readiness_engine.run_all(force_refresh=True)
     return {
         "connect_result": connect_result,
-        "report": updated_report,
+        "report": _safe_readiness_dict(updated_report),
     }
 
 
@@ -194,7 +232,8 @@ async def connect_adb_server(payload: ConnectAdbServerRequest, request: Request)
     if connection_result["success"]:
         readiness_engine.set_probe_target_serial(None)
         readiness_engine.invalidate_cache()
-        response["report"] = await readiness_engine.run_all(force_refresh=True)
+        report = await readiness_engine.run_all(force_refresh=True)
+        response["report"] = _safe_readiness_dict(report)
     return response
 
 
@@ -219,7 +258,7 @@ async def use_local_adb_server(request: Request, persist: bool = True):
     updated_report = await readiness_engine.run_all(force_refresh=True)
     return {
         "connection_result": connection_result,
-        "report": updated_report,
+        "report": _safe_readiness_dict(updated_report),
     }
 
 
@@ -362,7 +401,7 @@ async def update_credentials(request: UpdateCredentialsRequest):
             "status": "success",
             "message": f"API key for {provider} {action_desc}.",
             "provider": provider,
-            "report": updated_report,
+            "report": _safe_readiness_dict(updated_report),
         }
     except HTTPException:
         raise

@@ -74,6 +74,7 @@ dmypy.json
 .project
 .pydevproject
 .settings/
+.zcode/
 
 # Node & Frontend (Showcase UI)
 apps/showcase_ui/node_modules/
